@@ -153,6 +153,11 @@ async function fetchLiveStores(q){
       rarity: (x.rarity && x.rarity!=="Precio real") ? x.rarity : (selected?.rarity || x.rarity),
       image: x.image || selected?.image || selected?.thumbnail || null
     }));
+    try{
+      await savePriceSnapshot(q, selected, liveResults);
+    }catch(e){
+      console.error("Historial: no se pudo guardar snapshot", e);
+    }
     data = [...liveResults, ...data];
     refreshSelects();
     $("metricCards").textContent=data.length;
@@ -170,6 +175,11 @@ async function search(q){
   els.summary.textContent="Consultando Gorila TCG y Pandora Store…";
   await fetchLiveStores(q);
   render();
+  try{
+    await loadPriceHistory(q, window.MITOS_SELECTED_CARD || null, 30);
+  }catch(e){
+    console.error("Historial: no se pudo cargar", e);
+  }
 }
 els.heroSearchBtn.onclick=()=>search(els.heroSearch.value);
 els.heroSearch.addEventListener("keydown",e=>{if(e.key==="Enter") search(els.heroSearch.value)});
@@ -465,3 +475,186 @@ productStyle.textContent=`
   }
 `;
 document.head.appendChild(productStyle);
+
+// ===== HISTORIAL DE PRECIOS =====
+(function setupHistoryPanel(){
+  const cards = $("cardsGrid");
+  if(!cards || $("priceHistoryPanel")) return;
+  const panel = document.createElement("section");
+  panel.id = "priceHistoryPanel";
+  panel.className = "price-history hidden";
+  panel.innerHTML = `
+    <div class="history-head">
+      <div>
+        <span class="history-eyebrow">Histórico</span>
+        <h3 id="historyTitle">Evolución de precio</h3>
+      </div>
+      <div class="history-range">
+        <button data-history-days="7">7 días</button>
+        <button data-history-days="30" class="active">30 días</button>
+        <button data-history-days="90">90 días</button>
+      </div>
+    </div>
+    <div class="history-kpis">
+      <div><span>Actual</span><strong id="historyCurrent">—</strong></div>
+      <div><span>Promedio</span><strong id="historyAvg">—</strong></div>
+      <div><span>Mínimo</span><strong id="historyMin">—</strong></div>
+      <div><span>Máximo</span><strong id="historyMax">—</strong></div>
+      <div><span>Variación</span><strong id="historyChange">—</strong></div>
+    </div>
+    <div class="history-signal" id="historySignal"></div>
+    <div class="history-chart-wrap">
+      <svg id="historyChart" viewBox="0 0 760 250" role="img" aria-label="Gráfico histórico de precios"></svg>
+    </div>
+    <div class="history-legend" id="historyLegend"></div>
+    <small class="history-note">El historial comienza desde que MitosPrice registra búsquedas y snapshots diarios.</small>
+  `;
+  cards.parentElement.insertBefore(panel, cards.nextSibling);
+
+  panel.querySelectorAll("[data-history-days]").forEach(btn=>{
+    btn.addEventListener("click", async ()=>{
+      panel.querySelectorAll("[data-history-days]").forEach(x=>x.classList.remove("active"));
+      btn.classList.add("active");
+      const q = $("searchInput")?.value || "";
+      await loadPriceHistory(q, window.MITOS_SELECTED_CARD || null, Number(btn.dataset.historyDays));
+    });
+  });
+})();
+
+function historyIdentity(q, selected){
+  return {
+    card: selected?.name || q,
+    edition: selected?.edition || "",
+    code: selected?.code || ""
+  };
+}
+
+async function savePriceSnapshot(q, selected, offers){
+  if(!offers?.length) return;
+  const identity = historyIdentity(q, selected);
+  const payload = {
+    ...identity,
+    offers: offers.map(x=>({
+      store:x.store,
+      price:Number(x.price),
+      stock:x.stock||"",
+      url:x.url||""
+    }))
+  };
+  const res = await fetch("/.netlify/functions/history", {
+    method:"POST",
+    headers:{"content-type":"application/json"},
+    body:JSON.stringify(payload)
+  });
+  if(!res.ok) throw new Error(`history POST ${res.status}`);
+}
+
+function historySignal(metrics){
+  if(!metrics || !Number.isFinite(metrics.current) || !Number.isFinite(metrics.average)) return "";
+  const diff = ((metrics.current-metrics.average)/metrics.average)*100;
+  if(diff <= -10) return `<span class="signal-good">🟢 BUEN PRECIO</span> ${Math.abs(diff).toFixed(1)}% bajo el promedio`;
+  if(diff >= 10) return `<span class="signal-high">🔴 PRECIO ALTO</span> ${diff.toFixed(1)}% sobre el promedio`;
+  return `<span class="signal-normal">🟡 PRECIO NORMAL</span> dentro del rango habitual`;
+}
+
+function drawHistoryChart(points){
+  const svg = $("historyChart");
+  if(!svg) return;
+  svg.innerHTML = "";
+  if(!points?.length){
+    svg.innerHTML = `<text x="380" y="125" text-anchor="middle" fill="currentColor" opacity=".55">Aún no hay suficientes datos históricos</text>`;
+    return;
+  }
+
+  const W=760,H=250,padL=58,padR=18,padT=22,padB=38;
+  const values=points.flatMap(p=>Object.values(p.stores||{})).filter(Number.isFinite);
+  if(!values.length) return;
+  let min=Math.min(...values), max=Math.max(...values);
+  if(min===max){ min*=.95; max*=1.05; }
+  const x=i=>padL+(i/Math.max(points.length-1,1))*(W-padL-padR);
+  const y=v=>padT+(max-v)/(max-min)*(H-padT-padB);
+
+  const ns="http://www.w3.org/2000/svg";
+  const add=(tag,attrs,text)=>{
+    const el=document.createElementNS(ns,tag);
+    Object.entries(attrs||{}).forEach(([k,v])=>el.setAttribute(k,v));
+    if(text!=null) el.textContent=text;
+    svg.appendChild(el); return el;
+  };
+
+  [0,.25,.5,.75,1].forEach(t=>{
+    const val=max-(max-min)*t, yy=padT+(H-padT-padB)*t;
+    add("line",{x1:padL,y1:yy,x2:W-padR,y2:yy,stroke:"currentColor","stroke-opacity":".10"});
+    add("text",{x:padL-8,y:yy+4,"text-anchor":"end",fill:"currentColor","fill-opacity":".55","font-size":"11"},clp(Math.round(val)));
+  });
+
+  const stores=[...new Set(points.flatMap(p=>Object.keys(p.stores||{})))];
+  const dashStyles=["","7 4"];
+  stores.forEach((store,si)=>{
+    const valid=points.map((p,i)=>({i,v:p.stores?.[store]})).filter(d=>Number.isFinite(d.v));
+    if(!valid.length) return;
+    const d=valid.map((p,j)=>`${j?"L":"M"} ${x(p.i)} ${y(p.v)}`).join(" ");
+    add("path",{d,fill:"none",stroke:"currentColor","stroke-width":"3","stroke-opacity":si===0?".95":".55","stroke-dasharray":dashStyles[si%dashStyles.length]});
+    valid.forEach(p=>add("circle",{cx:x(p.i),cy:y(p.v),r:"3.2",fill:"currentColor","fill-opacity":si===0?".95":".60"}));
+  });
+
+  const labelIndexes=[0,Math.floor((points.length-1)/2),points.length-1].filter((v,i,a)=>a.indexOf(v)===i);
+  labelIndexes.forEach(i=>{
+    const label=new Date(points[i].date+"T12:00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short"});
+    add("text",{x:x(i),y:H-12,"text-anchor":"middle",fill:"currentColor","fill-opacity":".55","font-size":"11"},label);
+  });
+
+  $("historyLegend").innerHTML=stores.map((s,i)=>`<span><i class="${i===0?"solid":"dash"}"></i>${s}</span>`).join("");
+}
+
+async function loadPriceHistory(q, selected, days=30){
+  const panel=$("priceHistoryPanel");
+  if(!panel || !q) return;
+  const identity=historyIdentity(q,selected);
+  const params=new URLSearchParams({q:identity.card,edition:identity.edition,code:identity.code,days:String(days)});
+  const res=await fetch(`/.netlify/functions/history?${params.toString()}`);
+  if(!res.ok) return;
+  const payload=await res.json();
+
+  panel.classList.remove("hidden");
+  $("historyTitle").textContent=`${identity.card} · ${days} días`;
+
+  const m=payload.metrics||{};
+  $("historyCurrent").textContent=Number.isFinite(m.current)?clp(m.current):"—";
+  $("historyAvg").textContent=Number.isFinite(m.average)?clp(m.average):"—";
+  $("historyMin").textContent=Number.isFinite(m.min)?clp(m.min):"—";
+  $("historyMax").textContent=Number.isFinite(m.max)?clp(m.max):"—";
+  $("historyChange").textContent=Number.isFinite(m.changePct)?`${m.changePct>=0?"▲":"▼"} ${Math.abs(m.changePct).toFixed(1)}%`:"—";
+  $("historySignal").innerHTML=historySignal(m);
+  drawHistoryChart(payload.points||[]);
+}
+
+const historyStyle=document.createElement("style");
+historyStyle.textContent=`
+  .price-history{margin-top:22px;padding:20px;border:1px solid rgba(255,255,255,.10);border-radius:18px;background:rgba(9,20,33,.82)}
+  .price-history.hidden{display:none}
+  .history-head{display:flex;justify-content:space-between;gap:14px;align-items:center;margin-bottom:18px}
+  .history-eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.65}
+  .history-head h3{margin:5px 0 0;font-size:23px}
+  .history-range{display:flex;gap:7px}
+  .history-range button{border:1px solid rgba(255,255,255,.12);background:transparent;color:inherit;border-radius:999px;padding:7px 11px;cursor:pointer}
+  .history-range button.active{background:rgba(255,255,255,.12)}
+  .history-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:13px}
+  .history-kpis div{padding:11px;border-radius:11px;background:rgba(255,255,255,.04);display:grid;gap:4px}
+  .history-kpis span{font-size:11px;opacity:.65}
+  .history-kpis strong{font-size:17px}
+  .history-signal{padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.035);font-size:13px;margin-bottom:12px}
+  .signal-good,.signal-high,.signal-normal{font-weight:800;margin-right:6px}
+  .history-chart-wrap{width:100%;overflow-x:auto}
+  #historyChart{width:100%;min-width:560px;height:auto;color:currentColor}
+  .history-legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;opacity:.75}
+  .history-legend span{display:flex;align-items:center;gap:6px}
+  .history-legend i{display:inline-block;width:24px;border-top:3px solid currentColor}
+  .history-legend i.dash{border-top-style:dashed;opacity:.65}
+  .history-note{display:block;margin-top:10px;opacity:.5}
+  @media(max-width:760px){
+    .history-head{align-items:flex-start;flex-direction:column}
+    .history-kpis{grid-template-columns:repeat(2,1fr)}
+  }
+`;
+document.head.appendChild(historyStyle);
