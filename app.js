@@ -71,32 +71,47 @@ function renderDeals(){
   els.deals.innerHTML=deals.map(d=>`<article class="deal"><span>Oportunidad demo</span><h3>${d.name}</h3><strong>${clp(d.low.price)}</strong><span>${d.low.store} · ahorro potencial ${clp(d.save)}</span></article>`).join("");
 }
 
-async function fetchGorila(q){
-  try{
-    const res = await fetch(`/.netlify/functions/gorila?q=${encodeURIComponent(q)}`);
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    const payload = await res.json();
-    data = data.filter(x=>!x.live);
-    if(payload.results?.length){
-      data = [...payload.results, ...data];
-      refreshSelects();
-      $("metricCards").textContent=data.length;
-      $("metricStores").textContent=uniq("store").length;
-      toast(`Precio real encontrado en Gorila TCG: ${clp(payload.results[0].price)}`);
-    }else{
-      toast(payload.message || "Gorila TCG no devolvió un resultado exacto");
+async function fetchStore(fn, q) {
+  const res = await fetch(`/.netlify/functions/${fn}?q=${encodeURIComponent(q)}`);
+  if(!res.ok) throw new Error(`${fn}: HTTP ${res.status}`);
+  return await res.json();
+}
+
+async function fetchLiveStores(q){
+  data = data.filter(x=>!x.live);
+  const stores = [
+    { fn:"gorila", name:"Gorila TCG" },
+    { fn:"pandora", name:"Pandora Store" }
+  ];
+
+  const settled = await Promise.allSettled(stores.map(s=>fetchStore(s.fn,q)));
+  let liveResults = [];
+
+  settled.forEach((result, i)=>{
+    if(result.status==="fulfilled" && result.value?.results?.length){
+      liveResults.push(...result.value.results);
+    } else if(result.status==="rejected"){
+      console.error(stores[i].name, result.reason);
     }
-  }catch(err){
-    console.error(err);
-    toast("No se pudo consultar Gorila TCG; se mantienen datos demo");
+  });
+
+  if(liveResults.length){
+    data = [...liveResults, ...data];
+    refreshSelects();
+    $("metricCards").textContent=data.length;
+    $("metricStores").textContent=uniq("store").length;
+    const best = [...liveResults].sort((a,b)=>a.price-b.price)[0];
+    toast(`Mejor precio real: ${best.store} ${clp(best.price)}`);
+  } else {
+    toast("No hubo resultados reales; se mantienen datos demo");
   }
 }
 
 async function search(q){
   els.search.value=q;
   document.querySelector("#comparador").scrollIntoView({behavior:"smooth"});
-  els.summary.textContent="Consultando Gorila TCG…";
-  await fetchGorila(q);
+  els.summary.textContent="Consultando Gorila TCG y Pandora Store…";
+  await fetchLiveStores(q);
   render();
 }
 els.heroSearchBtn.onclick=()=>search(els.heroSearch.value);
