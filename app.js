@@ -124,3 +124,81 @@ $("favoritesBtn").onclick=()=>{ if(!favorites.size){toast("Aún no tienes favori
 $("metricCards").textContent=data.length;
 $("metricStores").textContent=uniq("store").length;
 saveFavs(); render(); renderDeals();
+
+// ===== Catálogo Wiki MyL / Fandom: autocompletado =====
+(function setupCatalogAutocomplete(){
+  const style = document.createElement("style");
+  style.textContent = `
+    .mp-autocomplete{position:relative}
+    .mp-suggestions{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:80;
+      background:#0d1a2b;border:1px solid rgba(255,255,255,.12);border-radius:12px;
+      box-shadow:0 18px 45px rgba(0,0,0,.35);overflow:hidden;display:none;max-height:330px;overflow-y:auto}
+    .mp-suggestions.show{display:block}
+    .mp-suggestion{width:100%;text-align:left;padding:11px 13px;border:0;border-bottom:1px solid rgba(255,255,255,.06);
+      background:transparent;color:#fff;display:flex;justify-content:space-between;gap:12px}
+    .mp-suggestion:hover,.mp-suggestion:focus{background:#17283e;outline:0}
+    .mp-suggestion small{color:#9ba9bd}
+    .mp-source{padding:8px 12px;color:#8291a5;font-size:10px;background:#0a1523}
+  `;
+  document.head.appendChild(style);
+
+  const input = $("searchInput");
+  if (!input) return;
+  const parent = input.parentElement;
+  parent.classList.add("mp-autocomplete");
+
+  const box = document.createElement("div");
+  box.className = "mp-suggestions";
+  parent.appendChild(box);
+
+  let timer = null;
+  let controller = null;
+
+  async function suggest(q){
+    if (controller) controller.abort();
+    controller = new AbortController();
+    try{
+      const res = await fetch(`/.netlify/functions/catalog?q=${encodeURIComponent(q)}&mode=suggest&limit=12`, {signal:controller.signal});
+      if(!res.ok) return [];
+      const payload = await res.json();
+      return payload.results || [];
+    }catch(e){
+      if(e.name !== "AbortError") console.error("Catálogo:", e);
+      return [];
+    }
+  }
+
+  function close(){ box.classList.remove("show"); }
+
+  input.addEventListener("input", ()=>{
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if(q.length < 2){ close(); return; }
+    timer = setTimeout(async ()=>{
+      const rows = await suggest(q);
+      if(!rows.length){ close(); return; }
+      box.innerHTML = rows.map((r,i)=>`
+        <button class="mp-suggestion" type="button" data-catalog-index="${i}">
+          <span>${r.name}</span><small>Wiki MyL</small>
+        </button>`).join("") +
+        `<div class="mp-source">Referencia: Wiki Mitos y Leyendas · Fandom · CC BY-SA</div>`;
+      box.classList.add("show");
+      box.querySelectorAll("[data-catalog-index]").forEach(btn=>{
+        btn.onclick = async ()=>{
+          const picked = rows[Number(btn.dataset.catalogIndex)];
+          input.value = picked.name;
+          close();
+          // Search the exact catalog name in all connected stores.
+          await search(picked.name);
+        };
+      });
+    }, 220);
+  });
+
+  input.addEventListener("keydown", e=>{
+    if(e.key === "Escape") close();
+  });
+  document.addEventListener("click", e=>{
+    if(!parent.contains(e.target)) close();
+  });
+})();
