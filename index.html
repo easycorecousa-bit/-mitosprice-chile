@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="MitosPrice Chile — compara precios de cartas Mitos y Leyendas entre tiendas chilenas." />
+  <title>MitosPrice Chile</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="container nav">
+        <a class="brand" href="#inicio" aria-label="MitosPrice Chile">
+          <span class="brand-mark">MP</span>
+          <span>
+            <strong>MitosPrice</strong>
+            <small>Chile</small>
+          </span>
+        </a>
+
+        <nav class="nav-links">
+          <a href="#comparador">Comparar</a>
+          <a href="#destacadas">Destacadas</a>
+          <a href="#como-funciona">Cómo funciona</a>
+        </nav>
+
+        <button class="ghost-btn" id="favoritesBtn">
+          ★ Favoritos <span id="favCount">0</span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" id="inicio">
+        <div class="hero-glow hero-glow-a"></div>
+        <div class="hero-glow hero-glow-b"></div>
+        <div class="container hero-grid">
+          <div class="hero-copy">
+            <div class="eyebrow">Comparador chileno de Mitos y Leyendas</div>
+            <h1>Encuentra tu carta al <span>mejor precio.</span></h1>
+            <p>
+              Compara precios, versiones y disponibilidad entre tiendas chilenas.
+              Menos tiempo buscando. Más tiempo jugando y coleccionando.
+            </p>
+
+            <div class="hero-search">
+              <div class="search-field">
+                <span>⌕</span>
+                <input id="heroSearch" type="search" placeholder="Busca una carta, edición o tienda…" />
+              </div>
+              <button class="primary-btn" id="heroSearchBtn">Buscar</button>
+            </div>
+
+            <div class="hero-chips">
+              <button data-search="Dragón">Dragones</button>
+              <button data-search="Legendaria">Legendarias</button>
+              <button data-search="Promocional">Promocionales</button>
+              <button data-search="Primera Era">Primera Era</button>
+            </div>
+
+            <div class="hero-note">
+              <span class="dot"></span>
+              Comparador funcional en modo demo, preparado para conectar precios reales de tiendas chilenas.
+            </div>
+          </div>
+
+          <div class="hero-card">
+            <div class="hero-card-head">
+              <span>Mejor compra destacada</span>
+              <span class="live-pill">DEMO</span>
+            </div>
+
+            <div class="featured-card">
+              <div class="card-art">
+                <span class="art-symbol">✦</span>
+                <small>MITOS & LEYENDAS</small>
+                <strong>KILGHARRAH</strong>
+                <span>Juego Organizado</span>
+              </div>
+
+              <div class="featured-info">
+                <div class="mini-label">Mejor precio</div>
+                <div class="featured-price">$5.990</div>
+                <div class="featured-store">Gorila TCG</div>
+                <div class="savings">Ahorro estimado 25%</div>
+                <button class="secondary-btn" data-card-search="Kilgharrah">Comparar ahora</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="metrics">
+        <div class="container metric-grid">
+          <div><strong id="metricCards">18</strong><span>Publicaciones demo</span></div>
+          <div><strong id="metricStores">5</strong><span>Tiendas objetivo</span></div>
+          <div><strong>1 clic</strong><span>Para ver la mejor opción</span></div>
+          <div><strong>100%</strong><span>Enfocado en MyL</span></div>
+        </div>
+      </section>
+
+      <section class="section container" id="comparador">
+        <div class="section-head">
+          <div>
+            <div class="eyebrow">Comparador</div>
+            <h2>Busca y compara</h2>
+          </div>
+          <p>
+            Filtra por edición, rareza y tienda. La tabla ordena automáticamente por precio.
+          </p>
+        </div>
+
+        <div class="compare-panel">
+          <div class="filters">
+            <div class="filter search-filter">
+              <label for="searchInput">Carta</label>
+              <input id="searchInput" type="search" placeholder="Ej. Ogham, Kilgharrah…" />
+            </div>
+
+            <div class="filter">
+              <label for="editionFilter">Edición</label>
+              <select id="editionFilter">
+                <option value="">Todas</option>
+              </select>
+            </div>
+
+            <div class="filter">
+              <label for="rarityFilter">Rareza</label>
+              <select id="rarityFilter">
+                <option value="">Todas</option>
+              </select>
+            </div>
+
+            <div class="filter">
+              <label for="storeFilter">Tienda</label>
+              <select id="storeFilter">
+                <option value="">Todas</option>
+              </select>
+            </div>
+
+            <div class="filter">
+              <label for="sortFilter">Ordenar</label>
+              <select id="sortFilter">
+                <option value="price">Menor precio</option>
+                <option value="priceDesc">Mayor precio</option>
+                <option value="name">Nombre A–Z</option>
+                <option value="store">Tienda A–Z</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="result-summary">
+            <div>
+              <strong id="resultCount">0 resultados</strong>
+              <span id="bestSummary">Busca una carta para comparar ofertas.</span>
+            </div>
+            <button class="text-btn" id="clearFilters">Limpiar filtros</button>
+          </div>
+
+          <div class="cards-grid" id="cardsGrid"></div>
+          <div class="empty-state hidden" id="emptyState">
+            <div class="empty-icon">⌕</div>
+            <h3>No encontramos resultados</h3>
+            <p>Prueba con otra carta, edición o tienda.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section alt-section" id="destacadas">
+        <div class="container">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">Oportunidades</div>
+              <h2>Mejores precios del momento</h2>
+            </div>
+            <p>
+              Ejemplos de cómo se visualizarían las oportunidades una vez conectadas las tiendas en tiempo real.
+            </p>
+          </div>
+
+          <div class="deal-grid" id="dealGrid"></div>
+        </div>
+      </section>
+
+      <section class="section container" id="como-funciona">
+        <div class="section-head">
+          <div>
+            <div class="eyebrow">Cómo funciona</div>
+            <h2>Simple para el usuario, potente por detrás</h2>
+          </div>
+        </div>
+
+        <div class="steps-grid">
+          <article>
+            <span>01</span>
+            <h3>Busca la carta</h3>
+            <p>Por nombre, edición, rareza o tienda.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Comparamos versiones</h3>
+            <p>Evitamos mezclar reimpresiones, promos o rarezas distintas.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Recomendamos</h3>
+            <p>Mostramos el menor precio y, después, el mejor costo total.</p>
+          </article>
+          <article>
+            <span>04</span>
+            <h3>Vas a comprar</h3>
+            <p>Un botón te lleva directamente a la tienda.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section container future">
+        <div class="future-card">
+          <div>
+            <div class="eyebrow">Próxima etapa</div>
+            <h2>De comparador a plataforma de mercado.</h2>
+            <p>
+              Historial de precios, alertas, valorización de colecciones y un optimizador que arme tu compra
+              entre varias tiendas considerando despacho.
+            </p>
+          </div>
+          <div class="future-list">
+            <span>✓ Alertas de precio</span>
+            <span>✓ Historial 30 / 90 días</span>
+            <span>✓ Valorización de colección</span>
+            <span>✓ Optimización de mazos</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="container footer-grid">
+        <div>
+          <div class="brand footer-brand">
+            <span class="brand-mark">MP</span>
+            <span><strong>MitosPrice</strong><small>Chile</small></span>
+          </div>
+          <p>Comparador independiente para la comunidad de Mitos y Leyendas.</p>
+        </div>
+        <div>
+          <strong>Nota</strong>
+          <p>Los precios incluidos en este prototipo son de demostración y no representan un feed en tiempo real.</p>
+        </div>
+      </div>
+    </footer>
+
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
