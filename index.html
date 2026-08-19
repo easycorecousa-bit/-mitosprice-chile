@@ -23,7 +23,8 @@
         </a>
 
         <nav class="nav-links">
-          <a href="#comparador">Comparar</a>
+          <a href="#comparador">Cartas</a>
+          <a href="#productos">Productos</a>
           <a href="#destacadas">Destacadas</a>
           <a href="#como-funciona">Cómo funciona</a>
         </nav>
@@ -103,6 +104,29 @@
         </div>
       </section>
 
+
+      <section class="section container mode-section" id="explorar">
+        <div class="section-head">
+          <div>
+            <div class="eyebrow">Explorar</div>
+            <h2>¿Qué quieres comparar?</h2>
+          </div>
+          <p>Separamos singles y productos sellados para evitar resultados mezclados.</p>
+        </div>
+        <div class="mode-grid">
+          <button class="mode-card active" data-mode-target="comparador">
+            <span class="mode-icon">🃏</span>
+            <strong>Cartas</strong>
+            <small>Singles individuales · edición · rareza · mejor precio</small>
+          </button>
+          <button class="mode-card" data-mode-target="productos">
+            <span class="mode-icon">📦</span>
+            <strong>Productos</strong>
+            <small>Sobres · displays · kits · starters · sellados</small>
+          </button>
+        </div>
+      </section>
+
       <section class="section container" id="comparador">
         <div class="section-head">
           <div>
@@ -166,6 +190,65 @@
             <div class="empty-icon">⌕</div>
             <h3>No encontramos resultados</h3>
             <p>Prueba con otra carta, edición o tienda.</p>
+          </div>
+        </div>
+      </section>
+
+
+      <section class="section alt-section" id="productos">
+        <div class="container">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">Productos</div>
+              <h2>Compara productos sellados</h2>
+            </div>
+            <p>Busca sobres, displays, kits, starters, bundles y otros productos MyL entre las tiendas conectadas.</p>
+          </div>
+
+          <div class="compare-panel">
+            <div class="product-toolbar">
+              <div class="filter search-filter">
+                <label for="productSearch">Producto</label>
+                <input id="productSearch" type="search" placeholder="Ej. display, sobre, kit torneo…" />
+              </div>
+              <div class="filter">
+                <label for="productCategory">Categoría</label>
+                <select id="productCategory">
+                  <option value="">Todas</option>
+                  <option value="Sobres">Sobres</option>
+                  <option value="Displays / Cajas">Displays / Cajas</option>
+                  <option value="Kits">Kits</option>
+                  <option value="Starter / Mazos">Starter / Mazos</option>
+                  <option value="Productos especiales">Productos especiales</option>
+                  <option value="Accesorios">Accesorios</option>
+                  <option value="Otros">Otros</option>
+                </select>
+              </div>
+              <div class="filter">
+                <label for="productSort">Ordenar</label>
+                <select id="productSort">
+                  <option value="price">Menor precio</option>
+                  <option value="unit">Menor precio/unidad</option>
+                  <option value="name">Nombre A–Z</option>
+                </select>
+              </div>
+              <button class="primary-btn product-search-btn" id="productSearchBtn">Buscar productos</button>
+            </div>
+
+            <div class="result-summary">
+              <div>
+                <strong id="productResultCount">0 productos</strong>
+                <span id="productSummary">Busca un producto para comparar ofertas.</span>
+              </div>
+              <button class="text-btn" id="clearProductFilters">Limpiar</button>
+            </div>
+
+            <div class="product-results" id="productResults"></div>
+            <div class="empty-state hidden" id="productEmpty">
+              <div class="empty-icon">📦</div>
+              <h3>No encontramos productos</h3>
+              <p>Prueba con “display”, “sobre”, “kit” o el nombre de una edición.</p>
+            </div>
           </div>
         </div>
       </section>

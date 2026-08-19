@@ -299,3 +299,169 @@ compareStyle.textContent = `
 `;
 document.head.appendChild(compareStyle);
 
+// ===== PRODUCTOS SELLADOS =====
+const productState = { rows: [] };
+
+function productFiltered(){
+  const cat = $("productCategory")?.value || "";
+  const sort = $("productSort")?.value || "price";
+  let rows = [...productState.rows];
+  if(cat) rows = rows.filter(x=>x.category===cat);
+  rows.sort((a,b)=>{
+    if(sort==="name") return a.name.localeCompare(b.name,"es");
+    if(sort==="unit"){
+      const au = Number.isFinite(a.unitPrice)?a.unitPrice:Number.POSITIVE_INFINITY;
+      const bu = Number.isFinite(b.unitPrice)?b.unitPrice:Number.POSITIVE_INFINITY;
+      return au-bu || a.price-b.price;
+    }
+    return a.price-b.price;
+  });
+  return rows;
+}
+
+function productGroup(rows){
+  const groups={};
+  rows.forEach(x=>{
+    const key=normalize(x.name);
+    (groups[key]??=[]).push(x);
+  });
+  return Object.values(groups);
+}
+
+function renderProducts(){
+  const host=$("productResults"), empty=$("productEmpty");
+  if(!host) return;
+  const rows=productFiltered();
+  host.innerHTML="";
+  $("productResultCount").textContent=`${rows.length} producto${rows.length===1?"":"s"}`;
+  empty?.classList.toggle("hidden",rows.length!==0);
+
+  if(!rows.length){
+    $("productSummary").textContent=productState.rows.length ? "No hay productos en esa categoría." : "Busca un producto para comparar ofertas.";
+    return;
+  }
+
+  const min=Math.min(...rows.map(x=>x.price));
+  $("productSummary").textContent=`Mejor precio encontrado: ${clp(min)}.`;
+
+  productGroup(rows).forEach(group=>{
+    group.sort((a,b)=>a.price-b.price);
+    const best=group[0], high=group[group.length-1];
+    const image=best.image || group.find(x=>x.image)?.image || "";
+    const saving=high.price-best.price;
+
+    const card=document.createElement("article");
+    card.className="product-compare-card";
+    card.innerHTML=`
+      <div class="product-image">
+        ${image?`<img src="${image}" alt="${best.name}" loading="lazy" onerror="this.remove()">`:`<div class="product-fallback">📦</div>`}
+      </div>
+      <div class="product-info">
+        <div class="product-title-row">
+          <div>
+            <span class="product-category">${best.category||"Producto"}</span>
+            <h3>${best.name}</h3>
+          </div>
+          <span class="live-pill">EN VIVO</span>
+        </div>
+
+        <div class="best-price-box">
+          <span>Mejor precio</span>
+          <strong>${clp(best.price)}</strong>
+          <small>${best.store}</small>
+        </div>
+
+        ${best.unitPrice ? `<div class="unit-price">≈ ${clp(best.unitPrice)} por unidad · ${best.units} unidades detectadas</div>` : ""}
+
+        <div class="offers-list">
+          ${group.map((x,i)=>`
+            <div class="offer-row ${i===0?"winner":""}">
+              <div class="offer-rank">${i===0?"🥇":i===1?"🥈":"•"}</div>
+              <div class="offer-main"><strong>${x.store}</strong><span>${x.stock}</span></div>
+              <div>
+                <div class="offer-price">${clp(x.price)}</div>
+                ${x.unitPrice?`<small>${clp(x.unitPrice)}/unidad</small>`:""}
+              </div>
+              <a class="offer-link" href="${x.url}" target="_blank" rel="noopener">Ver tienda</a>
+            </div>`).join("")}
+        </div>
+
+        ${group.length>1 && saving>0?`<div class="saving">Ahorro entre tiendas: <strong>${clp(saving)}</strong></div>`:""}
+      </div>`;
+    host.appendChild(card);
+  });
+}
+
+async function searchProducts(q){
+  q=(q||"").trim();
+  if(!q){ toast("Escribe un producto para buscar"); return; }
+  $("productSummary").textContent="Consultando productos en Gorila TCG y Pandora Store…";
+  $("productResults").innerHTML='<div class="product-loading">Buscando productos…</div>';
+
+  try{
+    const res=await fetch(`/.netlify/functions/products?q=${encodeURIComponent(q)}`);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const payload=await res.json();
+    productState.rows=payload.results||[];
+    renderProducts();
+    if(productState.rows.length){
+      const best=[...productState.rows].sort((a,b)=>a.price-b.price)[0];
+      toast(`Producto más barato: ${best.store} ${clp(best.price)}`);
+    }else{
+      toast("No encontramos productos para esa búsqueda");
+    }
+  }catch(err){
+    console.error(err);
+    productState.rows=[];
+    renderProducts();
+    toast("No se pudo consultar productos");
+  }
+}
+
+$("productSearchBtn")?.addEventListener("click",()=>searchProducts($("productSearch").value));
+$("productSearch")?.addEventListener("keydown",e=>{ if(e.key==="Enter") searchProducts(e.currentTarget.value); });
+$("productCategory")?.addEventListener("change",renderProducts);
+$("productSort")?.addEventListener("change",renderProducts);
+$("clearProductFilters")?.addEventListener("click",()=>{
+  $("productSearch").value="";
+  $("productCategory").value="";
+  $("productSort").value="price";
+  productState.rows=[];
+  renderProducts();
+});
+
+document.querySelectorAll("[data-mode-target]").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".mode-card").forEach(x=>x.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.modeTarget)?.scrollIntoView({behavior:"smooth"});
+  });
+});
+
+const productStyle=document.createElement("style");
+productStyle.textContent=`
+  .mode-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+  .mode-card{padding:22px;text-align:left;border-radius:18px;border:1px solid rgba(255,255,255,.10);background:rgba(9,20,33,.7);color:inherit;display:grid;gap:7px;cursor:pointer}
+  .mode-card.active,.mode-card:hover{border-color:rgba(255,255,255,.30);transform:translateY(-1px)}
+  .mode-icon{font-size:28px}.mode-card strong{font-size:20px}.mode-card small{opacity:.72;line-height:1.4}
+  .product-toolbar{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:12px;align-items:end;margin-bottom:18px}
+  .product-search-btn{height:46px}
+  .product-results{display:grid;gap:18px}
+  .product-compare-card{display:grid;grid-template-columns:minmax(190px,260px) 1fr;gap:22px;padding:18px;border-radius:18px;border:1px solid rgba(255,255,255,.10);background:rgba(9,20,33,.82)}
+  .product-image{min-height:250px;border-radius:14px;background:#091421;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .product-image img{width:100%;height:100%;max-height:340px;object-fit:contain}
+  .product-fallback{font-size:54px;opacity:.32}
+  .product-info{display:flex;flex-direction:column;gap:14px}
+  .product-title-row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+  .product-title-row h3{font-size:24px;margin:7px 0 0}
+  .product-category{font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.72}
+  .unit-price{font-size:13px;opacity:.82}
+  .product-loading{padding:28px;text-align:center;opacity:.72}
+  @media(max-width:760px){
+    .mode-grid{grid-template-columns:1fr}
+    .product-toolbar{grid-template-columns:1fr}
+    .product-compare-card{grid-template-columns:1fr}
+    .product-image{min-height:220px}
+  }
+`;
+document.head.appendChild(productStyle);
