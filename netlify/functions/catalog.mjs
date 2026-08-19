@@ -55,7 +55,7 @@ async function candidateTitles(q, limit = 20) {
 
 async function fetchCardPages(titles) {
   if (!titles.length) return [];
-  const data = await jsonFetch(`${API}?action=query&prop=revisions&rvprop=content&rvslots=main&titles=${encodeURIComponent(titles.join("|"))}&format=json&formatversion=2`);
+  const data = await jsonFetch(`${API}?action=query&prop=revisions|pageimages&rvprop=content&rvslots=main&piprop=original|thumbnail&pithumbsize=500&titles=${encodeURIComponent(titles.join("|"))}&format=json&formatversion=2`);
   const pages = data?.query?.pages || [];
   const cards = [];
 
@@ -71,6 +71,8 @@ async function fetchCardPages(titles) {
       rarity: extractField(wt, ["frecuencia","rareza"]),
       code: extractField(wt, ["código","codigo"]),
       wikiUrl: wikiUrl(page.title),
+      image: page?.original?.source || page?.thumbnail?.source || null,
+      thumbnail: page?.thumbnail?.source || page?.original?.source || null,
       source: "Wiki MyL / Fandom"
     });
   }
